@@ -1,5 +1,5 @@
 # Use the official Python image from the Docker Hub
-FROM python:3.9-slim
+FROM python:3.9
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -12,7 +12,6 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libssl-dev \
     libffi-dev \
-    python-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and install the required Python packages
