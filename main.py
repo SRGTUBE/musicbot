@@ -1,70 +1,73 @@
-import os
 import discord
 from discord.ext import commands
 import wavelink
+import os
 
+# Get the bot token from Railway secrets
+TOKEN = os.getenv('BOT_TOKEN')
+
+# Bot setup
 intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+intents.message_content = True  # Enable the message content intent
+bot = commands.Bot(command_prefix="!", intents=intents)
 
+# Connect to Lavalink server
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
-    await wavelink.NodePool.create_node(
+    print(f'Logged in as {bot.user}')
+    
+    # Connect to Lavalink
+    node = await wavelink.NodePool.create_node(
         bot=bot,
-        host=os.getenv("LAVALINK_HOST"),
-        port=int(os.getenv("LAVALINK_PORT")),
-        password=os.getenv("LAVALINK_PASS"),
-        https=os.getenv("LAVALINK_SSL", "false").lower() == "true"
+        host='localhost',  # Use your Lavalink server host or IP
+        port=2333,  # Lavalink default port
+        password='youshallnotpass',  # Default password, replace if needed
+        identifier='MAIN',  # Name of the node
+        region='us_east'  # Your region, change it if needed
     )
+    print(f'Connected to Lavalink node {node.identifier}')
 
+# Command to join the voice channel and play music
 @bot.command()
 async def join(ctx):
     if not ctx.author.voice:
-        return await ctx.send("You're not in a voice channel.")
+        await ctx.send("You need to join a voice channel first!")
+        return
+
     channel = ctx.author.voice.channel
-    await channel.connect(cls=wavelink.Player)
+    voice_client = await channel.connect()
 
-@bot.command()
-async def play(ctx, *, search: str):
-    vc = ctx.voice_client
+    # Get a song URL from YouTube
+    song = await wavelink.YouTubeTrack.search('https://www.youtube.com/watch?v=dQw4w9WgXcQ')  # Change URL as needed
+    await voice_client.play(song[0])
+    await ctx.send(f"Now playing: {song[0].title}")
 
-    if not vc:
-        if not ctx.author.voice:
-            return await ctx.send("You're not in a voice channel.")
-        vc = await ctx.author.voice.channel.connect(cls=wavelink.Player)
-
-    query = f'ytsearch:{search}'
-    tracks = await wavelink.YouTubeTrack.search(query)
-    if not tracks:
-        return await ctx.send("No results found.")
-    
-    track = tracks[0]
-    await vc.play(track)
-    await ctx.send(f'Now playing: `{track.title}`')
-
+# Command to pause the music
 @bot.command()
 async def pause(ctx):
-    vc = ctx.voice_client
-    if not vc or not vc.is_playing():
-        return await ctx.send("Nothing is playing.")
-    await vc.pause()
-    await ctx.send("Paused!")
+    if ctx.voice_client:
+        ctx.voice_client.pause()
+        await ctx.send("Paused the music.")
+    else:
+        await ctx.send("I'm not playing anything.")
 
+# Command to resume the music
 @bot.command()
 async def resume(ctx):
-    vc = ctx.voice_client
-    if not vc or not vc.is_paused():
-        return await ctx.send("Nothing is paused.")
-    await vc.resume()
-    await ctx.send("Resumed!")
+    if ctx.voice_client:
+        ctx.voice_client.resume()
+        await ctx.send("Resumed the music.")
+    else:
+        await ctx.send("I'm not playing anything.")
 
+# Command to stop the music and disconnect
 @bot.command()
 async def stop(ctx):
-    vc = ctx.voice_client
-    if not vc or not vc.is_connected():
-        return await ctx.send("I'm not connected.")
-    await vc.disconnect()
-    await ctx.send("Disconnected!")
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("Stopped the music and disconnected.")
+    else:
+        await ctx.send("I'm not playing anything.")
 
-bot.run(os.getenv("BOT_TOKEN"))
+# Run the bot using the token from Railway secrets
+bot.run(TOKEN)
